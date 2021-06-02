@@ -1,3 +1,9 @@
+# The following things needs to be edited:
+# 1. SRA Toolkit directory path 
+# 2. Output directory path/name
+# 3. MySQL database credentials
+# 4. SRA accession number retrieval query string
+
 import re
 import os
 import sys
@@ -5,16 +11,21 @@ import subprocess
 import mysql.connector
 
 class SequenceRetriever:
+    '''
+    Class responsible for retrieving the sequence data and verfying the validity of the files
+    downloaded. Both the file conversion (.sra to .fastq) and the validation utilizes SRA Toolkit's 
+    VDB module. 
+    '''
+
     def __init__(self):
         self.dir_path = os.path.dirname(os.path.realpath(__file__)) + '/SRA-Numbers' #directory
         self.sra_toolkit_path = './sratoolkit.2.11.0-centos_linux64/bin'
         self.output_dir = "Output"
 
 
-
     def download_data(self, logFileName: str, verifyData = False):
         '''
-        Downloads the sequence data from the correspounding SRA accession numbers using the SRA Toolkit
+        Download the sequence data from the correspounding SRA accession numbers using the SRA Toolkit
 
         :param logFileName: name of the file containing the SRA numbers
         :param verifyData: boolean to whether if the SRA accession number format needs to be verified 
@@ -34,7 +45,7 @@ class SequenceRetriever:
         for sra_num in sra_data:
             sra_num = sra_num.strip().replace('\n', '')
 
-            #print(f"Downloading SRA Sequence {sra_num}...")
+            # download the sequence data using the SRA Toolkit
             subprocess.run(f"{self.sra_toolkit_path}/prefetch {sra_num}", shell=True)
             print(f"Converting {sra_num}.sra to {sra_num}.fastq...")
             subprocess.run(f"{self.sra_toolkit_path}/fastq-dump --split-files --fasta 60 --outdir {sra_num} {sra_num}", shell=True)
@@ -50,10 +61,9 @@ class SequenceRetriever:
         #         print(incorrect_num)
 
 
-
     def verify_sra_input(self, sra_input: list) -> list:
         '''
-        Verifies the input SRA accession numbers to ensure their format validity.
+        Verifies the input SRA accession numbers to ensure that their format is valid.
 
         :param sra_data: a list of SRA numbers to be verified
         :return: a list containing two lists. List one contains the correct SRA numbers. List two contains the incorrect SRA numbers.
@@ -74,13 +84,12 @@ class SequenceRetriever:
         return [correct_data, incorrect_data]
 
 
-
     def verify_sra_data(self, sra_input_list: list) -> bool:
         '''
-        Function used to validate the downloaded data using the SRA Toolkit.
+        Validates the downloaded .sra files using the SRA Toolkit.
 
         :param sra_input_list: a list of SRA numbers to be validated
-        :return: a boolean that represent whether if any data failed to be validated
+        :return: a boolean that represents whether if any data failed to be validated
         :rtype: boolean
         '''
         validation = True
@@ -106,8 +115,14 @@ class SequenceRetriever:
 
 
 class MySQLRetriever:
+    '''
+    Class responsible for retrieving the SRA accession numbers from a specified MySQL databases and
+    stores the SRA accession numbers in a designated text file for the SequenceRetriever to read. 
+    '''
+
     def __init__(self):
         self.query = 'SELECT sra_num FROM sra_data'
+
 
     def retrieve_sra_num(self) -> list:
         '''
@@ -119,7 +134,7 @@ class MySQLRetriever:
         database = mysql.connector.connect(
             host='localhost',
             user='root',
-            passwd='000000',
+            passwd='password!',
             database='sra_test'
         )
 
@@ -137,10 +152,9 @@ class MySQLRetriever:
         return sra_list
     
 
-
     def store_sra_num(self, log_file_name: str, sra_list: list):
         '''
-        Stores the retrieved SRA accession numbers in the designated txt file
+        Stores the retrieved SRA accession numbers in the designated log file
 
         :param log_file_name: name for the txt file storing the SRA accession numbers
         :param sra_list: a list of SRA accession numbers
@@ -151,13 +165,15 @@ class MySQLRetriever:
         with open(os.path.join(file_path, log_file_name), "w", encoding="utf-8") as file_ptr:
             for sra in sra_list:
                 file_ptr.write(f"{sra}\n")
+            print(f"{len(sra_list)} SRA accession number(s) has been successfully written into the log file.")
 
 
-# mysqlRetr = MySQLRetriever()
-# mysqlRetr.store_sra_num("test.txt", mysqlRetr.retrieve_sra_num())
+if __name__ == "__main__":
+    mysqlRetr = MySQLRetriever()
+    mysqlRetr.store_sra_num("test.txt", mysqlRetr.retrieve_sra_num())
 
-# instance = SequenceRetriever()
-# instance.download_data("SRA-Log", verifyData = True)
+    # instance = SequenceRetriever()
+    # instance.download_data("SRA-Log", verifyData = True)
 
 
-#  subprocess.run(f"{self.sra_toolkit_path}/fastq-dump --split-files --fasta 60 --outdir {self.output_dir} {sra_num}", shell=True)
+# subprocess.run(f"{self.sra_toolkit_path}/fastq-dump --split-files --fasta 60 --outdir {self.output_dir} {sra_num}", shell=True)
